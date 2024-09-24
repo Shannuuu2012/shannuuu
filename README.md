@@ -1,42 +1,15 @@
-# Spotify Clone Front-End
-A front-end clone project of the Spotify web player. The project was created using the create-react-app CLI. The app is meant to work in conjunction with an authorization/authenication server found at this [repo](https://github.com/JL978/spotify-clone-server).
-
-## Table of Contents
-- [Description](#description)
-- [Motivation](#motivation)
-- [Tech/Framework Used](#techframework-used)
-- [Installation](#installation)
-- [Architechture](#architecture)
-
-## Description
-A clone web application using the create-react-app. The app comsumes data from the Spotify API and tries to mimic the UI and front-end behaviours of the official [Spotify web player](https://open.spotify.com/) as much as possible.
-
-![App Screen Shot](https://github.com/JL978/spotify-clone-client/blob/master/demo/FrontPage.png)
-*The main screen (non-authenicated) of the app*
-
-Like the official app, if a user is not authenticated, they can still browse and look up different playlists, albums, artists and users. Non authenticated users cannot control the player and go to certain protected routes - if they tried to navigate to these routes, a tooltip pops up prompting login.
-
-![Non-authenticated app demonstration](https://github.com/JL978/spotify-clone-client/blob/master/demo/NonAuthed.gif)
-*Non-authenticated app demonstration*
-
-If a user login to a premium account (due to the limitation of the available API, free accounts cannot do much), user can access certain routes to their own playlists, saved items, etc. and use the app as a remote control player to any playing official (no direct streaming is available through the API)
-
-![Authenticated app demonstration](https://github.com/JL978/spotify-clone-client/blob/master/demo/Authed.gif)
-*Authenticated app demonstration*
-
-![Remote player demonstration](https://github.com/JL978/spotify-clone-client/blob/master/demo/RemotePlay.gif)
-*Remote player demonstration*
+# Spotify Clone App Authenication Server
+This repository is the code to run an authorization/authentication server to connect to the Spotify API. The server is to be used in conjunction with the front-end code of the cloned app found [here](https://github.com/JL978/spotify-clone-client)
 
 ## Motivation
-This project was created by me mainly to teach myself React development. Since the point of this project was not to make great UI/UX design choices, I chose to create a clone of a well established  product as to shorten my learning time and not to focus on the wrong thing. Since I am already a heavy Spotify user and therefore I thought it would be an interesting challenge to tackle. 
+When working with the [Spotify API](https://developer.spotify.com/documentation/web-api/), you must follow this authorization [guide](https://developer.spotify.com/documentation/general/guides/authorization-guide/) provided on the API documentation. The basis of this authorization flow involve using a client id and client secret provided by signing up on the Spotify Developer dash board. These keys must be sent with every single request made to the Spotify server. 
 
-The majority of the react components and logic was written from scratch by myself. I chose not to use existing component libraries because that forces me to both get a really deep understanding of React and get as much practice as I could with React.
+When working with a client secret, one must keep it... well secret. Therefore, the solution to this is to keep the requests to the Spotify API on the server-side so that the client-side app can't expose the secret key to potential attackers - making the app more secure. Authenitcation of users are also done through this server for the same purpose and a refresh_token is sent back as a cookie while an access token is sent back to be stored in memory. This authorization flow was built to avoid the most common types of cyber attack - Cross Site Scripting and Cross Site Request Forgery.
 
 ## Tech/Framework Used
-* React (create-react-app CLI)
-* react-router-dom
+* Node.js
+* Express.js
 * axios
-
 
 ## Installation
 This project requires [node](http://nodejs.org) and [npm](https://npmjs.com) installed globally. 
@@ -44,36 +17,69 @@ This project requires [node](http://nodejs.org) and [npm](https://npmjs.com) ins
 Clone the repository to a directory of your choosing
 
 ```sh
-$ git clone https://github.com/JL978/spotify-clone-client.git
+$ git clone https://github.com/JL978/spotify-clone-server.git
 ```
-Navigate into spotify-clone-client and install the necessary packages
+Navigate into spotify-clone-server and install the necessary packages
 
 ```sh
 $ npm install 
 ```
-To start up the app locally
+To run the server
 
 ```sh
 $ npm start
 ```
+To run the dev server
 
-Additionally, this project also requires you to clone and run the server code from this [repo](https://github.com/JL978/spotify-clone-server) to work properly.
+```sh
+$ npm run dev
+```
 
-## Architecture
-### Authentication and Authorization
+### **Other requirements**
+[The Spotify Developer Dashboard](https://developer.spotify.com/dashboard/login)
 
-As mentioned from before this app needs to be used with a authentication server with the code provided on another [repo](https://github.com/JL978/spotify-clone-server), you can navigate there to learn more about how the server works. On this end, in order to be logged in, the app must have 2 things: a refresh_key stored in cookie and an access_key stored in memory. When there these values are present, the user is effectively "logged in" and therefore the app will render the "logged in" version with the user's personal info. The benefit of doing authorization this way is that we are not exposed to XSRF by avoiding having the access_key stored in cookie while also keeping the user logged in if they refresh the app through the following flow.
+Create a new .env file in the root folder and add the following key value pairs to the file
 
-[Authorization flow](demo/auth.png)
+```sh
+CLIENT_ID = [client id optained from the Spotify Developer Dashboard]
+CLIENT_SECRET = [client secret optained from the Spotify Developer Dashboard]
+FRONT_URI = http://localhost:3000
+RE_URI = http://localhost:4000/callback
+REXP = /\.localhost:3000/
+```
 
-As far as I know, this is the safest way to handle keys in OAuth flow.  
+## Usage
 
-### Custom hooks and utilities
+This server is to be consumed by a front-end application - namely the Spotify clone at this [repo](https://github.com/JL978/spotify-clone-client)
 
-One of the more interesting functionality from this project is the infinite scroll on playlists and search results. This feature was made using custom hooks and integration with the Spotify API pagination system.
+The following endpoints are available
 
-The hooks was named useInfiScroll and useTokenScroll, they are both effectively the same with the useTokenScroll requesting for private information with the access token. The hook make use of useState, useRef, useCallback and the IntersectionObserver API. It takes in a setList (from a useState hook) function from the parent component (which is use internally to set the paginated list) and return a useCallback ref to be passed to the last element of the list and a setNext to store the next paginated uri during initial setup. The challenge of using ref here is the use of functional component in this project which one cannot simply pass a ref parameter to. The solution to this is using React.forwardRef on the child component. One thing I would do different next time is to use [Composition as much as possible instead of Inheritance](https://reactjs.org/docs/composition-vs-inheritance.html) so that I don't have to pass refs through multiple component levels.
+|Endpoint|Method|Body|Response|
+|:---|:---|:---|:---|
+|/|POST|{endpoint}|200 with the returned data from the endpoint|
+|/login|GET|none|redirect to the Spotify authentication page|
+|/refresh_token|GET|none|if a valid refresh token is available in the cookie, an access_token is sent back as data|
+|/logout|GET|none|clear the refresh token and effectively log the user out off the app|
 
-Another interesting feature of this app is the live search feature where search results are updated as the user type into the search box. In doing this, the app is making a new request to the API everytime a new letter is entered. However, sometimes typing can be a faster than the request is able to finish and the request may become stale as the user type. Therefore, being able to cancel the request on the fly is needed.  
+## The architecture
+### Client Credential Flow (un-authorized requests)
 
-[More coming soon...]
+![client credential flow](demo/unauthed.png)
+
+The advantage of doing request this way instead of using the implicit grant flow as outlined in the Spotify API document is that you have a higher rate limit. It also doesn't prompt the user to login, which would be a bad experience for users who don't have a Spotify account but just want to browse their selections. 
+
+An improvement to this process would be to store the access_token in memory after the first request and use that for subsequent requests instead of requesting for a new access token on every request.
+
+### Authorization code flow 
+
+The majority of code flow is very similar to the authorization code flow as outlined in the API [documentation](https://developer.spotify.com/documentation/general/guides/authorization-guide/), a diagram of which is shown bellow
+
+![spotify authorization flow](demo/spotify-auth.png)
+
+The only difference with this server is that the sent back data at step 2 is the access_token as JSON so that the client can store that in memory (the client will now show the logged in version of the app) and set the refresh token in a cookie. At this point the client is free to make requests for personal data as outlined in step 3-4 however an issue would arise if the user refreshed the page. Since the access_token is stored in memory, the user would be logged out during page refresh and provide a bad user experience. To solve this issue, a /refresh_token endpoint is also provided. During any initial loading, the client checks for if their is a refresh_token stored in a cookie, if there is then it makes a request to the /refresh_token endpoint which uses the refresh_token to obtain a new access_key from the Spotify API. 
+
+![refresh token flow](demo/refresh.png)
+
+### Logging out
+
+Since "logged in" just means that there is a refresh_token stored in cookies, to log the user out it is simply deleting the cookie and refresh the client.
